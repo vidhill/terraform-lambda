@@ -2,6 +2,19 @@ provider "aws" {
   region = var.region
 }
 
+resource "aws_s3_bucket" "bucket"{
+  bucket = "vidhill-my-tf-test-bucket"
+
+  tags = {
+    Name        = "My bucket"
+    Environment = "Dev"
+  }
+}
+
+resource "aws_s3_bucket" "bucket1"{
+  bucket =  "${aws_s3_bucket.bucket.bucket}-resized"
+}
+
 data "aws_iam_policy_document" "example1" {
 
   statement {
