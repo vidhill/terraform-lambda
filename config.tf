@@ -2,7 +2,7 @@ provider "aws" {
   region = var.region
 }
 
-resource "aws_s3_bucket" "bucket" {
+resource "aws_s3_bucket" "srcBucket" {
   bucket = "vidhill-my-tf-test-bucket"
 
   tags = {
@@ -10,8 +10,8 @@ resource "aws_s3_bucket" "bucket" {
   }
 }
 
-resource "aws_s3_bucket" "bucket1" {
-  bucket = "${aws_s3_bucket.bucket.bucket}-resized"
+resource "aws_s3_bucket" "destBucket" {
+  bucket = "${aws_s3_bucket.srcBucket.bucket}-resized"
   
   tags = {
     Name = "Destination bucket"
@@ -23,13 +23,13 @@ resource "aws_lambda_permission" "allow_bucket" {
   action        = "lambda:InvokeFunction"
   principal     = "s3.amazonaws.com"
   function_name = aws_lambda_function.test_lambda.arn
-  source_arn    = aws_s3_bucket.bucket.arn
+  source_arn    = aws_s3_bucket.srcBucket.arn
 }
 
 locals {
   bucketIds = [
-    aws_s3_bucket.bucket.id,
-    aws_s3_bucket.bucket1.id
+    aws_s3_bucket.srcBucket.id,
+    aws_s3_bucket.destBucket.id
   ]
 }
 
@@ -50,7 +50,7 @@ resource "aws_s3_bucket_public_access_block" "example" {
 }
 
 resource "aws_s3_bucket_notification" "bucket_notification" {
-  bucket = aws_s3_bucket.bucket.id
+  bucket = aws_s3_bucket.srcBucket.id
 
   lambda_function {
     lambda_function_arn = aws_lambda_function.test_lambda.arn
@@ -78,8 +78,8 @@ data "aws_iam_policy_document" "example1" {
     ]
 
     resources = [
-      "${aws_s3_bucket.bucket.arn}/*",
-      "${aws_s3_bucket.bucket1.arn}/*"
+      "${aws_s3_bucket.srcBucket.arn}/*",
+      "${aws_s3_bucket.destBucket.arn}/*"
     ]
   }
 }
