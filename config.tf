@@ -6,31 +6,47 @@ resource "aws_s3_bucket" "bucket" {
   bucket = "vidhill-my-tf-test-bucket"
 
   tags = {
-    Name        = "My bucket"
-    Environment = "Dev"
+    Name = "Source bucket"
   }
 }
 
 resource "aws_s3_bucket" "bucket1" {
   bucket = "${aws_s3_bucket.bucket.bucket}-resized"
+  
+  tags = {
+    Name = "Destination bucket"
+  }
 }
 
 resource "aws_lambda_permission" "allow_bucket" {
   statement_id  = "AllowExecutionFromS3Bucket"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.test_lambda.arn
   principal     = "s3.amazonaws.com"
+  function_name = aws_lambda_function.test_lambda.arn
   source_arn    = aws_s3_bucket.bucket.arn
 }
 
-resource "aws_s3_bucket_acl" "example" {
-  bucket = aws_s3_bucket.bucket.id
-  acl    = "private"
+locals {
+  bucketIds = [
+    aws_s3_bucket.bucket.id,
+    aws_s3_bucket.bucket1.id
+  ]
 }
 
-resource "aws_s3_bucket_acl" "example1" {
-  bucket = aws_s3_bucket.bucket1.id
-  acl    = "private"
+resource "aws_s3_bucket_acl" "example" {
+  for_each = toset(local.bucketIds)
+  bucket   = each.value
+  acl      = "private"
+}
+
+resource "aws_s3_bucket_public_access_block" "example" {
+  for_each = toset(local.bucketIds)
+  bucket   = each.value
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
 }
 
 resource "aws_s3_bucket_notification" "bucket_notification" {
@@ -86,15 +102,13 @@ data "aws_iam_policy_document" "example2" {
 
 
 resource "aws_iam_role_policy" "test_policy" {
-  name = "test_policy"
-  role = aws_iam_role.iam_for_lambda.id
-
+  name   = "test_policy"
+  role   = aws_iam_role.iam_for_lambda.id
   policy = data.aws_iam_policy_document.example1.json
 }
 
 resource "aws_iam_role" "iam_for_lambda" {
-  name = "iam_for_lambda"
-
+  name               = "iam_for_lambda"
   assume_role_policy = data.aws_iam_policy_document.example2.json
 }
 
