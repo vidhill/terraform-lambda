@@ -118,10 +118,32 @@ resource "aws_iam_role_policy_attachment" "basic" {
 }
 
 resource "aws_lambda_function" "test_lambda" {
-  filename      = "resize/function.zip"
+  filename      = data.archive_file.lambda_zip_dir.output_path
   function_name = "vidhill-resize-lambda"
   role          = aws_iam_role.iam_for_lambda.arn
   handler       = "index.handler"
   runtime       = "nodejs12.x"
+
+  source_code_hash = filebase64sha256(data.archive_file.lambda_zip_dir.output_path)
+}
+
+#
+# Create zip archive of lambda folder
+#
+data "archive_file" "lambda_zip_dir" {
+  type        = "zip"
+  output_path = "function.zip"
+  source_dir  = data.external.build.working_dir
+}
+
+#
+# Build (npm install in this case)
+#
+data "external" "build" {
+  program = ["bash", "-c", <<EOT
+    npm ci >&2 && echo "{}" 
+  EOT
+  ]
+  working_dir = "${path.module}/resize"
 }
 
