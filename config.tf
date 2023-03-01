@@ -12,12 +12,13 @@ resource "aws_s3_bucket" "srcBucket" {
 
 resource "aws_s3_bucket" "destBucket" {
   bucket = "${aws_s3_bucket.srcBucket.bucket}-resized"
-  
+
   tags = {
     Name = "Destination bucket"
   }
 }
 
+# Add permission for bucket to trigger lambda function
 resource "aws_lambda_permission" "allow_bucket" {
   statement_id  = "AllowExecutionFromS3Bucket"
   action        = "lambda:InvokeFunction"
@@ -26,6 +27,8 @@ resource "aws_lambda_permission" "allow_bucket" {
   source_arn    = aws_s3_bucket.srcBucket.arn
 }
 
+
+
 locals {
   bucketIds = [
     aws_s3_bucket.srcBucket.id,
@@ -33,12 +36,15 @@ locals {
   ]
 }
 
+# Make buckets private
 resource "aws_s3_bucket_acl" "example" {
   for_each = toset(local.bucketIds)
   bucket   = each.value
   acl      = "private"
 }
 
+
+# Deny public access to buckets
 resource "aws_s3_bucket_public_access_block" "example" {
   for_each = toset(local.bucketIds)
   bucket   = each.value
@@ -49,6 +55,7 @@ resource "aws_s3_bucket_public_access_block" "example" {
   restrict_public_buckets = true
 }
 
+# Add handler to trigger lambda on file add
 resource "aws_s3_bucket_notification" "bucket_notification" {
   bucket = aws_s3_bucket.srcBucket.id
 
@@ -58,6 +65,10 @@ resource "aws_s3_bucket_notification" "bucket_notification" {
   }
 
 }
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# Create policy allowing lambda read/write access to buckets: START
+#
 
 data "aws_iam_policy_document" "example1" {
 
@@ -83,6 +94,16 @@ data "aws_iam_policy_document" "example1" {
     ]
   }
 }
+
+#
+# Create policy allowing lambda read/write access to buckets: END
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# Create role for lambda: START
+#
 
 data "aws_iam_policy_document" "example2" {
   statement {
@@ -117,12 +138,19 @@ resource "aws_iam_role_policy_attachment" "basic" {
   role       = aws_iam_role.iam_for_lambda.id
 }
 
+#
+# Create role for lambda: END
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+
+# Create lambda
 resource "aws_lambda_function" "test_lambda" {
   filename      = data.archive_file.lambda_zip_dir.output_path
   function_name = "vidhill-resize-lambda"
-  role          = aws_iam_role.iam_for_lambda.arn
-  handler       = "index.handler"
-  runtime       = "nodejs12.x"
+  # role          = aws_iam_role.iam_for_lambda.arn
+  role    = "arn:aws:iam::728615433596:role/iam_for_lambda"
+  handler = "index.handler"
+  runtime = "nodejs12.x"
 
   source_code_hash = filebase64sha256(data.archive_file.lambda_zip_dir.output_path)
 }
