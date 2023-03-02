@@ -169,7 +169,7 @@ data "archive_file" "lambda_zip_dir" {
 #
 data "external" "build" {
   program = ["bash", "-c", <<EOT
-    npm ci >&2 && echo "{}" 
+    npm ci --arch=x64 --platform=linux --target=10.15.0 >&2 && echo "{}" 
   EOT
   ]
   working_dir = "${path.module}/resize"
