@@ -12,7 +12,6 @@ resource "aws_s3_bucket" "srcBucket" {
 
 resource "aws_s3_bucket" "destBucket" {
   bucket = "${aws_s3_bucket.srcBucket.bucket}-resized"
-
   tags = {
     Name = "Destination bucket"
   }
@@ -70,7 +69,7 @@ resource "aws_s3_bucket_notification" "bucket_notification" {
 # Create policy allowing lambda read/write access to buckets: START
 #
 
-data "aws_iam_policy_document" "example1" {
+data "aws_iam_policy_document" "bucket_read_write" {
 
   statement {
     sid = ""
@@ -95,6 +94,12 @@ data "aws_iam_policy_document" "example1" {
   }
 }
 
+resource "aws_iam_role_policy" "resize_buckets_read_write_policy" {
+  name   = "resize_buckets_read_write_policy"
+  role   = aws_iam_role.iam_for_lambda.id
+  policy = data.aws_iam_policy_document.bucket_read_write.json
+}
+
 #
 # Create policy allowing lambda read/write access to buckets: END
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -105,7 +110,7 @@ data "aws_iam_policy_document" "example1" {
 # Create role for lambda: START
 #
 
-data "aws_iam_policy_document" "example2" {
+data "aws_iam_policy_document" "assume_role" {
   statement {
     sid = ""
     actions = [
@@ -121,16 +126,9 @@ data "aws_iam_policy_document" "example2" {
   }
 }
 
-
-resource "aws_iam_role_policy" "test_policy" {
-  name   = "test_policy"
-  role   = aws_iam_role.iam_for_lambda.id
-  policy = data.aws_iam_policy_document.example1.json
-}
-
 resource "aws_iam_role" "iam_for_lambda" {
   name               = "iam_for_lambda"
-  assume_role_policy = data.aws_iam_policy_document.example2.json
+  assume_role_policy = data.aws_iam_policy_document.assume_role.json
 }
 
 resource "aws_iam_role_policy_attachment" "basic" {
