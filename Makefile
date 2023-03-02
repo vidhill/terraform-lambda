@@ -1,8 +1,9 @@
 
 clean:
-	rm -rf resize/resize.zip
+	rm -rf function.zip
 
-zip: clean
-	zip -r resize.zip resize/
-zip-mv: zip
-	mv resize.zip resize
+npminstall:
+	npm --prefix ./resize install
+
+build: clean npminstall
+	
