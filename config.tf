@@ -145,10 +145,11 @@ resource "aws_iam_role_policy_attachment" "basic" {
 resource "aws_lambda_function" "test_lambda" {
   filename      = data.archive_file.lambda_zip_dir.output_path
   function_name = "vidhill-resize-lambda"
-  # role          = aws_iam_role.iam_for_lambda.arn
-  role    = "arn:aws:iam::728615433596:role/iam_for_lambda"
-  handler = "index.handler"
-  runtime = "nodejs12.x"
+  role          = aws_iam_role.iam_for_lambda.arn
+  handler       = "main"
+  runtime       = "go1.x"
+  memory_size   = "512"
+  timeout       = "30"
 
   source_code_hash = filebase64sha256(data.archive_file.lambda_zip_dir.output_path)
 }
@@ -159,17 +160,17 @@ resource "aws_lambda_function" "test_lambda" {
 data "archive_file" "lambda_zip_dir" {
   type        = "zip"
   output_path = "function.zip"
-  source_dir  = data.external.build.working_dir
+  source_dir  = "${data.external.build.working_dir}/build"
 }
 
 #
-# Build (npm install in this case)
+# Build 
 #
 data "external" "build" {
   program = ["bash", "-c", <<EOT
-    npm ci --arch=x64 --platform=linux --target=10.15.0 >&2 && echo "{}" 
+     make build.linux >&2 && echo "{}" 
   EOT
   ]
-  working_dir = "${path.module}/resize"
+  working_dir = "${path.module}/resize-go"
 }
 
