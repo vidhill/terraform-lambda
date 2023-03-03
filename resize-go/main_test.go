@@ -40,7 +40,7 @@ func TestIsJpegExtension(t *testing.T) {
 }
 
 func TestMakeTmpPath(t *testing.T) {
-	p, err := resizeCopyImg("test.jpg", "resized.jpg")
+	p, err := resizeCopyImg("testdata/test.jpg", "resized.jpg")
 	if err != nil {
 		assert.FailNow(t, err.Error())
 		return
