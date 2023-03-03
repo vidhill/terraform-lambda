@@ -33,4 +33,5 @@ override.tf.json
 resize/node_modules
 
 # Build file
+resize-go/build
 function.zip
