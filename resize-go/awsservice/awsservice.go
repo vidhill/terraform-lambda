@@ -17,7 +17,7 @@ type awsService struct {
 	Session *session.Session
 }
 
-func (serv *awsService) DownloadImages3(bucket, key string) (io.ReadCloser, string, error) {
+func (serv *awsService) DownloadFileS3(bucket, key string) (io.ReadCloser, string, error) {
 	downloadPath := makeTmpPath(key)
 
 	file, err := os.Create(downloadPath)
@@ -46,7 +46,7 @@ func (serv *awsService) DownloadImages3(bucket, key string) (io.ReadCloser, stri
 	return file, downloadPath, nil
 }
 
-func (serv *awsService) UploadImages3(filePath, bucket, key string) error {
+func (serv *awsService) UploadFileS3(filePath, bucket, key string) error {
 
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -54,19 +54,10 @@ func (serv *awsService) UploadImages3(filePath, bucket, key string) error {
 	}
 	defer file.Close()
 
-	uploader := s3manager.NewUploader(serv.Session)
-
-	input := s3manager.UploadInput{
-		Bucket: aws.String(bucket),
-		Key:    aws.String(key),
-		Body:   file,
-	}
-
-	_, err = uploader.Upload(&input)
-	return err
+	return serv.UploadReaderContentS3(file, bucket, key)
 }
 
-func (serv *awsService) UploadImages31(r io.Reader, bucket, key string) error {
+func (serv *awsService) UploadReaderContentS3(r io.Reader, bucket, key string) error {
 
 	uploader := s3manager.NewUploader(serv.Session)
 
