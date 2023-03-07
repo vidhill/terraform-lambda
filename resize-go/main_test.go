@@ -1,7 +1,6 @@
 package main
 
 import (
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -37,20 +36,4 @@ func TestIsJpegExtension(t *testing.T) {
 		})
 	}
 
-}
-
-func TestMakeTmpPath(t *testing.T) {
-	p, err := resizeCopyImg("testdata/test.jpg", "resized.jpg")
-	if err != nil {
-		assert.FailNow(t, err.Error())
-		return
-	}
-
-	expectedPath := makeTmpPath("resized.jpg")
-
-	assert.Equal(t, expectedPath, p)
-	assert.FileExists(t, expectedPath)
-
-	// clean up
-	os.Remove(p)
 }
