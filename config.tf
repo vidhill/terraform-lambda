@@ -2,6 +2,16 @@ provider "aws" {
   region = var.region
 }
 
+terraform {
+  cloud {
+    organization = var.terraform_cloud_org
+
+    workspaces {
+      name = "resize-lamba-workspace"
+    }
+  }
+}
+
 resource "aws_s3_bucket" "srcBucket" {
   bucket = "vidhill-my-tf-test-bucket"
 
