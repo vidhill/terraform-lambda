@@ -22,8 +22,12 @@ import (
 
 // const (
 // 	bucket = "vidhill-my-tf-test-bucket"
-// 	w      = "3375475.jpeg"
+// 	key    = "3375475.jpeg"
 // )
+
+type awsService struct {
+	session *session.Session
+}
 
 func main() {
 
@@ -35,9 +39,15 @@ func main() {
 }
 
 func downloadResizeUpload(bucket, key string) error {
+	serv, err := NewAWSService()
+
+	if err != nil {
+		return err
+	}
+
 	p := filepath.Base(key)
 
-	dlPath, err := DownloadImages3(bucket, p)
+	dlPath, err := serv.DownloadImages3(bucket, p)
 	if err != nil {
 		return err
 	}
@@ -51,7 +61,7 @@ func downloadResizeUpload(bucket, key string) error {
 
 	fmt.Println("rePath", rePath)
 
-	if err := UploadImages3(rePath, bucket+"-resized", newKey); err != nil {
+	if err := serv.UploadImages3(rePath, bucket+"-resized", newKey); err != nil {
 		return err
 	}
 
@@ -111,11 +121,7 @@ func Handler(ctx context.Context, s3Event events.S3Event) error {
 	return nil
 }
 
-func DownloadImages3(bucket, key string) (string, error) {
-	region := os.Getenv("AWS_REGION")
-
-	fmt.Println("region", region)
-
+func (serv *awsService) DownloadImages3(bucket, key string) (string, error) {
 	downloadPath := makeTmpPath(key)
 
 	file, err := os.Create(downloadPath)
@@ -125,11 +131,7 @@ func DownloadImages3(bucket, key string) (string, error) {
 
 	defer file.Close()
 
-	sess := session.Must(session.NewSession(&aws.Config{
-		Region: aws.String(region),
-	}))
-
-	downloader := s3manager.NewDownloader(sess)
+	downloader := s3manager.NewDownloader(serv.session)
 
 	s := s3.GetObjectInput{
 		Bucket: aws.String(bucket),
@@ -147,8 +149,7 @@ func DownloadImages3(bucket, key string) (string, error) {
 	return downloadPath, nil
 }
 
-func UploadImages3(filePath, bucket, key string) error {
-	region := os.Getenv("AWS_REGION")
+func (serv *awsService) UploadImages3(filePath, bucket, key string) error {
 
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -156,11 +157,7 @@ func UploadImages3(filePath, bucket, key string) error {
 	}
 	defer file.Close()
 
-	sess := session.Must(session.NewSession(&aws.Config{
-		Region: aws.String(region),
-	}))
-
-	uploader := s3manager.NewUploader(sess)
+	uploader := s3manager.NewUploader(serv.session)
 
 	input := s3manager.UploadInput{
 		Bucket: aws.String(bucket),
@@ -192,4 +189,20 @@ func removeFiles(paths ...string) error {
 		}
 	}
 	return nil
+}
+
+func NewAWSService() (awsService, error) {
+	region := os.Getenv("AWS_REGION")
+
+	sess, err := session.NewSession(&aws.Config{
+		Region: aws.String(region),
+	})
+
+	if err != nil {
+		return awsService{}, err
+	}
+
+	return awsService{
+		session: sess,
+	}, nil
 }
