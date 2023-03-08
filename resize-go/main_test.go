@@ -1,39 +1,33 @@
 package main
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	localFile "github.com/vidhill/terraform-lambda-play/localfile"
 )
 
-func TestIsJpegExtension(t *testing.T) {
+func TestDownloadResizeUpload(t *testing.T) {
+	outFile := "out.jpeg"
+	localServ := localFile.NewLocalServ(outFile)
 
-	invalidFilenames := []string{
-		"foo.txt",
-		"foo.png",
-		"subfolder/foo.png",
+	if err := downloadResizeUpload("dummyBucket", "testdata/test.jpg", localServ); err != nil {
+		assert.FailNow(t, err.Error())
+		return
 	}
 
-	for _, v := range invalidFilenames {
-		t.Run(v, func(t *testing.T) {
-			res := isJpegExtension(v)
+	info, err := os.Stat(outFile)
 
-			assert.False(t, res)
-		})
+	// check file exists
+	if err != nil {
+		assert.FailNow(t, err.Error())
+		return
 	}
 
-	validFilenames := []string{
-		"foo.jpeg",
-		"foo.jpg",
-		"subfolder/foo.jpeg",
-	}
+	// ensure is not an empty file
+	assert.NotEqual(t, info.Size(), int64(0))
 
-	for _, v := range validFilenames {
-		t.Run(v, func(t *testing.T) {
-			res := isJpegExtension(v)
-
-			assert.True(t, res)
-		})
-	}
-
+	// clean up
+	localServ.CleanUp()
 }
