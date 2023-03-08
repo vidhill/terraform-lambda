@@ -1,9 +1,12 @@
+setup-git-hooks:
+	$(info Setting up git hooks)
+	@printf '#!/bin/sh \nmake pre-push-hook' > .git/hooks/pre-push
+	@chmod +x .git/hooks/pre-push
 
-clean:
-	rm -rf function.zip
+pre-push-hook: check.terraform check.lint
 
-npminstall:
-	npm --prefix ./resize install
+check.terraform:
+	terraform fmt --check
 
-build: clean npminstall
-	
+check.lint:
+	gofmt -l resize-go/
