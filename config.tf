@@ -2,6 +2,16 @@ provider "aws" {
   region = var.region
 }
 
+terraform {
+  cloud {
+    organization = "vidhill"
+
+    workspaces {
+      name = "resize-lamba-workspace"
+    }
+  }
+}
+
 resource "aws_s3_bucket" "srcBucket" {
   bucket = "vidhill-my-tf-test-bucket"
 
@@ -29,15 +39,15 @@ resource "aws_lambda_permission" "allow_bucket" {
 
 
 locals {
-  bucketIds = [
-    aws_s3_bucket.srcBucket.id,
-    aws_s3_bucket.destBucket.id
-  ]
+  bucketIds = {
+    src  = aws_s3_bucket.srcBucket.id,
+    dest = aws_s3_bucket.destBucket.id
+  }
 }
 
 # Make buckets private
 resource "aws_s3_bucket_acl" "example" {
-  for_each = toset(local.bucketIds)
+  for_each = local.bucketIds
   bucket   = each.value
   acl      = "private"
 }
@@ -45,7 +55,7 @@ resource "aws_s3_bucket_acl" "example" {
 
 # Deny public access to buckets
 resource "aws_s3_bucket_public_access_block" "example" {
-  for_each = toset(local.bucketIds)
+  for_each = local.bucketIds
   bucket   = each.value
 
   block_public_acls       = true
@@ -153,6 +163,17 @@ resource "aws_lambda_function" "test_lambda" {
 
   source_code_hash = filebase64sha256(data.archive_file.lambda_zip_dir.output_path)
 }
+
+# log group, define retention
+resource "aws_cloudwatch_log_group" "logs" {
+  name              = "/aws/lambda/${aws_lambda_function.test_lambda.function_name}"
+  retention_in_days = 14
+}
+
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# Build lamda zip locally
+#
 
 #
 # Create zip archive of lambda folder

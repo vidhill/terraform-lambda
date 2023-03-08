@@ -1,33 +1,35 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"image"
 	"image/jpeg"
+	"io"
 	"os"
 	"path"
-	"path/filepath"
+	"strconv"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
-
 	"github.com/nfnt/resize"
+
+	awsService "github.com/vidhill/terraform-lambda-play/awsservice"
 )
 
-// const (
-// 	bucket = "vidhill-my-tf-test-bucket"
-// 	w      = "3375475.jpeg"
-// )
+var (
+	imageSize = uint(200)
+	// bucket    = "vidhill-my-tf-test-bucket"
+	// key       = "ainur-khasanov-WVkJxAqX1iQ-unsplash.jpg"
+)
 
 func main() {
 
-	// err := downloadResizeUpload(bucket, w)
+	imageSize = setImageSize()
+
+	// err := downloadResizeUpload(bucket, key)
 	// if err != nil {
 	// 	panic(err)
 	// }
@@ -35,60 +37,52 @@ func main() {
 }
 
 func downloadResizeUpload(bucket, key string) error {
-	p := filepath.Base(key)
+	newKey := "resized-" + key
+	destBucket := bucket + "-resized"
 
-	dlPath, err := DownloadImages3(bucket, p)
+	serv, err := awsService.NewService()
+
 	if err != nil {
 		return err
 	}
 
-	newKey := "resized-" + p
-
-	rePath, err := resizeCopyImg(dlPath, newKey)
+	file, dlPath, err := serv.DownloadFileS3(bucket, key)
 	if err != nil {
 		return err
 	}
 
-	fmt.Println("rePath", rePath)
+	defer file.Close()
 
-	if err := UploadImages3(rePath, bucket+"-resized", newKey); err != nil {
+	r, err := streamResize(file)
+	if err != nil {
 		return err
 	}
 
-	// clean up
-	return removeFiles(dlPath, rePath)
+	if err = serv.UploadReaderContentS3(r, destBucket, newKey); err != nil {
+		return err
+	}
+
+	return removeFiles(dlPath)
+}
+
+func streamResize(r io.Reader) (io.Reader, error) {
+	img, err := jpeg.Decode(r)
+	if err != nil {
+		return nil, err
+	}
+
+	resizedImg := resizeImg(img)
+
+	var buf bytes.Buffer
+
+	// encode the resized image into the bytes buffer
+	err = jpeg.Encode(&buf, resizedImg, nil)
+
+	return &buf, err
 }
 
 func resizeImg(img image.Image) image.Image {
-	return resize.Resize(200, 0, img, resize.Bilinear)
-}
-
-func resizeCopyImg(src, destFileName string) (string, error) {
-	sFile, err := os.Open(src)
-	if err != nil {
-		return "", err
-	}
-	defer sFile.Close()
-
-	// decode jpeg into image.Image
-	img, err := jpeg.Decode(sFile)
-	if err != nil {
-		return "", err
-	}
-
-	resized := resizeImg(img)
-
-	resizedPath := makeTmpPath(destFileName)
-
-	dFile, err := os.Create(resizedPath)
-	if err != nil {
-		return "", err
-	}
-	defer dFile.Close()
-
-	// write new image to file
-	return resizedPath, jpeg.Encode(dFile, resized, nil)
-
+	return resize.Resize(imageSize, 0, img, resize.Bilinear)
 }
 
 func Handler(ctx context.Context, s3Event events.S3Event) error {
@@ -111,67 +105,6 @@ func Handler(ctx context.Context, s3Event events.S3Event) error {
 	return nil
 }
 
-func DownloadImages3(bucket, key string) (string, error) {
-	region := os.Getenv("AWS_REGION")
-
-	fmt.Println("region", region)
-
-	downloadPath := makeTmpPath(key)
-
-	file, err := os.Create(downloadPath)
-	if err != nil {
-		panic(err)
-	}
-
-	defer file.Close()
-
-	sess := session.Must(session.NewSession(&aws.Config{
-		Region: aws.String(region),
-	}))
-
-	downloader := s3manager.NewDownloader(sess)
-
-	s := s3.GetObjectInput{
-		Bucket: aws.String(bucket),
-		Key:    aws.String(key),
-	}
-
-	numBytes, err := downloader.Download(file, &s)
-
-	if err != nil {
-		return downloadPath, fmt.Errorf("unable to download item %q, %v", key, err)
-	}
-
-	fmt.Println("Downloaded", file.Name(), numBytes, "bytes")
-
-	return downloadPath, nil
-}
-
-func UploadImages3(filePath, bucket, key string) error {
-	region := os.Getenv("AWS_REGION")
-
-	file, err := os.Open(filePath)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	sess := session.Must(session.NewSession(&aws.Config{
-		Region: aws.String(region),
-	}))
-
-	uploader := s3manager.NewUploader(sess)
-
-	input := s3manager.UploadInput{
-		Bucket: aws.String(bucket),
-		Key:    aws.String(key),
-		Body:   file,
-	}
-
-	_, err = uploader.Upload(&input)
-	return err
-}
-
 func isJpegExtension(p string) bool {
 	switch path.Ext(p) {
 	case ".jpeg", ".jpg":
@@ -181,10 +114,6 @@ func isJpegExtension(p string) bool {
 	}
 }
 
-func makeTmpPath(s string) string {
-	return path.Join(os.TempDir(), s)
-}
-
 func removeFiles(paths ...string) error {
 	for _, p := range paths {
 		if err := os.Remove(p); err != nil {
@@ -192,4 +121,14 @@ func removeFiles(paths ...string) error {
 		}
 	}
 	return nil
+}
+
+// determine image size from environment variable
+func setImageSize() uint {
+	sizeString := os.Getenv("IMAGE_SIZE")
+	i, err := strconv.Atoi(sizeString)
+	if err != nil && i != 0 {
+		return uint(i)
+	}
+	return imageSize
 }
