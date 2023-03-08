@@ -1,4 +1,4 @@
-# terraform-lambda-play
+# terraform-lambda
 
 Test lambda service, written in `go`, provisioning all required AWS resources using terraform.
 
