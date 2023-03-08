@@ -1,3 +1,5 @@
+.PHONY: check.lint
+
 setup-git-hooks:
 	$(info Setting up git hooks)
 	@printf '#!/bin/sh \nmake pre-push-hook' > .git/hooks/pre-push
@@ -9,4 +11,4 @@ check.terraform:
 	terraform fmt --check
 
 check.lint:
-	gofmt -l resize-go/
+	cd resize-go; make lint

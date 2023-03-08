@@ -1,3 +1,4 @@
+.PHONY: lint
 
 clean:
 	rm -rf build
@@ -12,3 +13,6 @@ build: clean
 	go build -o main main.go 
 	mkdir -p build 
 	mv main build	
+
+lint:
+	golangci-lint run
