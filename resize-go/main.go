@@ -8,7 +8,6 @@ import (
 	"image/jpeg"
 	"io"
 	"os"
-	"path"
 	"strconv"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -17,6 +16,7 @@ import (
 	"github.com/nfnt/resize"
 
 	awsService "github.com/vidhill/terraform-lambda-play/awsservice"
+	"github.com/vidhill/terraform-lambda-play/util"
 )
 
 var (
@@ -24,6 +24,13 @@ var (
 	// bucket    = "vidhill-my-tf-test-bucket"
 	// key       = "ainur-khasanov-WVkJxAqX1iQ-unsplash.jpg"
 )
+
+type FilesProvider interface {
+	LoadFile(bucket, key string) (io.ReadCloser, string, error)
+	WriteReaderContent(r io.Reader, bucket, key string) error
+	WriteFile(filePath, bucket, key string) error
+	RemoveFiles(paths ...string) error
+}
 
 func main() {
 
@@ -36,17 +43,10 @@ func main() {
 	lambda.Start(Handler)
 }
 
-func downloadResizeUpload(bucket, key string) error {
-	newKey := "resized-" + key
+func downloadResizeUpload(bucket, key string, serv FilesProvider) error {
 	destBucket := bucket + "-resized"
 
-	serv, err := awsService.NewService()
-
-	if err != nil {
-		return err
-	}
-
-	file, dlPath, err := serv.DownloadFileS3(bucket, key)
+	file, dlPath, err := serv.LoadFile(bucket, key)
 	if err != nil {
 		return err
 	}
@@ -58,11 +58,11 @@ func downloadResizeUpload(bucket, key string) error {
 		return err
 	}
 
-	if err = serv.UploadReaderContentS3(r, destBucket, newKey); err != nil {
+	if err = serv.WriteReaderContent(r, destBucket, key); err != nil {
 		return err
 	}
 
-	return removeFiles(dlPath)
+	return serv.RemoveFiles(dlPath)
 }
 
 func streamResize(r io.Reader) (io.Reader, error) {
@@ -87,39 +87,27 @@ func resizeImg(img image.Image) image.Image {
 
 func Handler(ctx context.Context, s3Event events.S3Event) error {
 
+	serv, err := awsService.NewService()
+
+	if err != nil {
+		return err
+	}
+
 	for _, record := range s3Event.Records {
 		srcKey := record.S3.Object.Key
 		srcBucket := record.S3.Bucket.Name
 
-		if !isJpegExtension(srcKey) {
+		if !util.IsJpegExtension(srcKey) {
 			continue
 		}
 
-		err := downloadResizeUpload(srcBucket, srcKey)
+		err := downloadResizeUpload(srcBucket, srcKey, &serv)
 		if err != nil {
 			fmt.Println(err.Error())
 			return err
 		}
 	}
 
-	return nil
-}
-
-func isJpegExtension(p string) bool {
-	switch path.Ext(p) {
-	case ".jpeg", ".jpg":
-		return true
-	default:
-		return false
-	}
-}
-
-func removeFiles(paths ...string) error {
-	for _, p := range paths {
-		if err := os.Remove(p); err != nil {
-			return err
-		}
-	}
 	return nil
 }
 

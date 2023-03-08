@@ -11,13 +11,15 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+
+	"github.com/vidhill/terraform-lambda-play/util"
 )
 
 type awsService struct {
 	Session *session.Session
 }
 
-func (serv *awsService) DownloadFileS3(bucket, key string) (io.ReadCloser, string, error) {
+func (serv *awsService) LoadFile(bucket, key string) (io.ReadCloser, string, error) {
 	downloadPath := makeTmpPath(key)
 
 	file, err := os.Create(downloadPath)
@@ -46,7 +48,7 @@ func (serv *awsService) DownloadFileS3(bucket, key string) (io.ReadCloser, strin
 	return file, downloadPath, nil
 }
 
-func (serv *awsService) UploadFileS3(filePath, bucket, key string) error {
+func (serv *awsService) WriteFile(filePath, bucket, key string) error {
 
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -54,10 +56,10 @@ func (serv *awsService) UploadFileS3(filePath, bucket, key string) error {
 	}
 	defer file.Close()
 
-	return serv.UploadReaderContentS3(file, bucket, key)
+	return serv.WriteReaderContent(file, bucket, key)
 }
 
-func (serv *awsService) UploadReaderContentS3(r io.Reader, bucket, key string) error {
+func (serv *awsService) WriteReaderContent(r io.Reader, bucket, key string) error {
 
 	uploader := s3manager.NewUploader(serv.Session)
 
@@ -69,6 +71,10 @@ func (serv *awsService) UploadReaderContentS3(r io.Reader, bucket, key string) e
 
 	_, err := uploader.Upload(&input)
 	return err
+}
+
+func (serv *awsService) RemoveFiles(paths ...string) error {
+	return util.RemoveFiles(paths...)
 }
 
 func NewService() (awsService, error) {
