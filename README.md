@@ -7,5 +7,3 @@ sequenceDiagram
     S3 Source Bucket->>Lambda:  "s3:ObjectCreated" event
     Lambda->>S3 Destination Bucket:  Resized image
 ```
-
-
