@@ -12,8 +12,10 @@ func TestDownloadResizeUpload(t *testing.T) {
 	outFile := "out.jpeg"
 	localServ := localFile.NewLocalServ(outFile)
 
+	assert := assert.New(t)
+
 	if err := downloadResizeUpload("dummyBucket", "testdata/test.jpg", localServ); err != nil {
-		assert.FailNow(t, err.Error())
+		assert.FailNow(err.Error())
 		return
 	}
 
@@ -21,13 +23,15 @@ func TestDownloadResizeUpload(t *testing.T) {
 
 	// check file exists
 	if err != nil {
-		assert.FailNow(t, err.Error())
+		assert.FailNow(err.Error())
 		return
 	}
 
 	// ensure is not an empty file
-	assert.NotEqual(t, info.Size(), int64(0))
+	assert.NotEqual(info.Size(), int64(0))
 
 	// clean up
-	localServ.CleanUp()
+	err = localServ.CleanUp()
+
+	assert.NoError(err)
 }
