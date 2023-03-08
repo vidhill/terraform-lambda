@@ -1,6 +1,6 @@
 # terraform-lambda
 
-![example workflow](https://github.com/vidhill/terraform-lambda/actions/workflows/go.yml/badge.svg)
+[![go workflow](https://github.com/vidhill/terraform-lambda/actions/workflows/go.yml/badge.svg)](https://github.com/vidhill/terraform-lambda/actions)
 
 Test lambda service, written in `go`, provisioning all required AWS resources using terraform.
 
