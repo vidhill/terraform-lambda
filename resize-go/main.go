@@ -20,7 +20,8 @@ import (
 )
 
 var (
-	imageSize = uint(200)
+	IMAGE_SIZE  = uint(200)
+	DEST_BUCKET string
 	// bucket    = "vidhill-my-tf-test-bucket"
 	// key       = "ainur-khasanov-WVkJxAqX1iQ-unsplash.jpg"
 )
@@ -32,9 +33,19 @@ type FilesProvider interface {
 	RemoveFiles(paths ...string) error
 }
 
-func main() {
+func init() {
+	// load values from env vars
+	IMAGE_SIZE = getImageSize()
 
-	imageSize = setImageSize()
+	if b, err := getDestinationBucket(); err != nil {
+		panic(err)
+	} else {
+		DEST_BUCKET = b
+	}
+
+}
+
+func main() {
 
 	// err := downloadResizeUpload(bucket, key)
 	// if err != nil {
@@ -44,7 +55,6 @@ func main() {
 }
 
 func downloadResizeUpload(bucket, key string, serv FilesProvider) error {
-	destBucket := bucket + "-resized"
 
 	file, dlPath, err := serv.LoadFile(bucket, key)
 	if err != nil {
@@ -58,7 +68,7 @@ func downloadResizeUpload(bucket, key string, serv FilesProvider) error {
 		return err
 	}
 
-	if err = serv.WriteReaderContent(r, destBucket, key); err != nil {
+	if err = serv.WriteReaderContent(r, DEST_BUCKET, key); err != nil {
 		return err
 	}
 
@@ -82,7 +92,7 @@ func streamResize(r io.Reader) (io.Reader, error) {
 }
 
 func resizeImg(img image.Image) image.Image {
-	return resize.Resize(imageSize, 0, img, resize.Bilinear)
+	return resize.Resize(IMAGE_SIZE, 0, img, resize.Bilinear)
 }
 
 func Handler(ctx context.Context, s3Event events.S3Event) error {
@@ -112,11 +122,21 @@ func Handler(ctx context.Context, s3Event events.S3Event) error {
 }
 
 // determine image size from environment variable
-func setImageSize() uint {
+func getImageSize() uint {
 	sizeString := os.Getenv("IMAGE_SIZE")
 	i, err := strconv.Atoi(sizeString)
 	if err != nil && i != 0 {
 		return uint(i)
 	}
-	return imageSize
+	return IMAGE_SIZE
+}
+
+func getDestinationBucket() (string, error) {
+	destBucket := os.Getenv("DESTINATION_BUCKET")
+
+	if destBucket == "" {
+		return "", fmt.Errorf("missing required environment varuable")
+	}
+
+	return destBucket, nil
 }
