@@ -12,7 +12,7 @@ terraform {
   }
 }
 
-resource "aws_s3_bucket" "srcBucket" {
+resource "aws_s3_bucket" "src_bucket" {
   bucket = "vidhill-my-tf-test-bucket"
 
   tags = {
@@ -20,8 +20,8 @@ resource "aws_s3_bucket" "srcBucket" {
   }
 }
 
-resource "aws_s3_bucket" "destBucket" {
-  bucket = "${aws_s3_bucket.srcBucket.bucket}-resized"
+resource "aws_s3_bucket" "dest_bucket" {
+  bucket = "${aws_s3_bucket.src_bucket.bucket}-resized"
   tags = {
     Name = "Destination bucket"
   }
@@ -33,15 +33,15 @@ resource "aws_lambda_permission" "allow_bucket" {
   action        = "lambda:InvokeFunction"
   principal     = "s3.amazonaws.com"
   function_name = aws_lambda_function.test_lambda.arn
-  source_arn    = aws_s3_bucket.srcBucket.arn
+  source_arn    = aws_s3_bucket.src_bucket.arn
 }
 
 
 
 locals {
   bucketIds = {
-    src  = aws_s3_bucket.srcBucket.id,
-    dest = aws_s3_bucket.destBucket.id
+    src  = aws_s3_bucket.src_bucket.id,
+    dest = aws_s3_bucket.dest_bucket.id
   }
 }
 
@@ -66,7 +66,7 @@ resource "aws_s3_bucket_public_access_block" "example" {
 
 # Add handler to trigger lambda on file add
 resource "aws_s3_bucket_notification" "bucket_notification" {
-  bucket = aws_s3_bucket.srcBucket.id
+  bucket = aws_s3_bucket.src_bucket.id
 
   lambda_function {
     lambda_function_arn = aws_lambda_function.test_lambda.arn
@@ -98,8 +98,8 @@ data "aws_iam_policy_document" "bucket_read_write" {
     ]
 
     resources = [
-      "${aws_s3_bucket.srcBucket.arn}/*",
-      "${aws_s3_bucket.destBucket.arn}/*"
+      "${aws_s3_bucket.src_bucket.arn}/*",
+      "${aws_s3_bucket.dest_bucket.arn}/*"
     ]
   }
 }

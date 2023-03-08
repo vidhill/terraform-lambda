@@ -43,9 +43,9 @@ func (serv *awsService) LoadFile(bucket, key string) (io.ReadCloser, string, err
 	fmt.Println("Downloaded", file.Name(), numBytes, "bytes")
 
 	// "rewind" the reader so that it can be read from again by the jpeg decoder
-	file.Seek(0, io.SeekStart)
+	_, err = file.Seek(0, io.SeekStart)
 
-	return file, downloadPath, nil
+	return file, downloadPath, err
 }
 
 func (serv *awsService) WriteFile(filePath, bucket, key string) error {

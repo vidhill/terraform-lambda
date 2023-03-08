@@ -1,9 +1,14 @@
+.PHONY: check.lint
 
-clean:
-	rm -rf function.zip
+setup-git-hooks:
+	$(info Setting up git hooks)
+	@printf '#!/bin/sh \nmake pre-push-hook' > .git/hooks/pre-push
+	@chmod +x .git/hooks/pre-push
 
-npminstall:
-	npm --prefix ./resize install
+pre-push-hook: check.terraform check.lint
 
-build: clean npminstall
-	
+check.terraform:
+	terraform fmt --check
+
+check.lint:
+	cd resize-go; make lint
