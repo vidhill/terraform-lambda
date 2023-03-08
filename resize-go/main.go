@@ -36,16 +36,14 @@ type FilesProvider interface {
 func init() {
 	// load values from env vars
 	IMAGE_SIZE = getImageSize()
-
-	if b, err := getDestinationBucket(); err != nil {
-		panic(err)
-	} else {
-		DEST_BUCKET = b
-	}
-
+	DEST_BUCKET = os.Getenv("DESTINATION_BUCKET")
 }
 
 func main() {
+
+	if DEST_BUCKET == "" {
+		panic("missing required DESTINATION_BUCKET environment variable")
+	}
 
 	// err := downloadResizeUpload(bucket, key)
 	// if err != nil {
@@ -129,14 +127,4 @@ func getImageSize() uint {
 		return uint(i)
 	}
 	return IMAGE_SIZE
-}
-
-func getDestinationBucket() (string, error) {
-	destBucket := os.Getenv("DESTINATION_BUCKET")
-
-	if destBucket == "" {
-		return "", fmt.Errorf("missing required environment varuable")
-	}
-
-	return destBucket, nil
 }
