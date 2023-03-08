@@ -162,6 +162,12 @@ resource "aws_lambda_function" "test_lambda" {
   timeout       = "30"
 
   source_code_hash = filebase64sha256(data.archive_file.lambda_zip_dir.output_path)
+
+  environment {
+    variables = {
+      DESTINATION_BUCKET = aws_s3_bucket.dest_bucket.bucket
+    }
+  }
 }
 
 # log group, define retention
